@@ -10,6 +10,10 @@ i3wm --> swaywm(i3wm的wayland实现,开发者比较保守) --> river-classic(�
 我私下的探索dwm,好像还有一个深度定制的cwm也挺好,dwm的wayland实现dwl,中期在codeberg上短暂出现开发者缺口
 Niri 和hyprland都试过,动画很好看,niri的操作逻辑我个人不是很习惯,所以我还是用回了river-classic
 现在river已经变成了一个纯粹的wayland合成器了,不提供窗口管理,river-classic相对于i3wm,sway等并不开箱即用
+# 关于包管理器
+pacman,paru(Rust写的Aur很好用),Nix(喜欢独特的函数式编程管理方案,集数学之精确,函数的纯净，代码的可靠于一身)
+apt(很早使用过debian,ubuntu的dpkg真的感觉不好用)
+
 # 关于窗口管理器的微调和依赖软件包
 mako -> 用来提示通知的
 wlroots0.20 ,pixman,tllist-> doc相关基础依赖
@@ -23,3 +27,11 @@ imv -> Unix下标准图片查看器
 mpv -> 媒体播放器（Unix标准播放器）
 cava -> 用于显示音符变化
 pipewire -> plauseaudio自从2000年以来真的太古老了,pipewire是一个很好的替代方案
+mpd,ncmpcpp,mpc -> CLI音乐三重奏,真神!
+emacs -> 神的编辑器
+vi/vim/neovim -> 编辑器之神(neovim男人减速带喵～!)
+joshuto -> 非常好的rust终端文件管理器(继承ranger意志) Yazi也挺好
+wshowkeys -> 用来在wayland上捕获按键情况显示
+vscodium -> 自由且安全的vscode分支,包括二进制分发文件都是可控自由的,拒绝跟踪监视
+waydroid -> Linux下高性能的Android容器方案(genymotion也挺好,用libhoudini转译方案也挺好)
+
