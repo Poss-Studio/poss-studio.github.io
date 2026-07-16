@@ -22,3 +22,4 @@ foot -> 利用率相当高的终端,用cpu渲染,极致的算法,常采用C\S架
 imv -> Unix下标准图片查看器
 mpv -> 媒体播放器（Unix标准播放器）
 cava -> 用于显示音符变化
+pipewire -> plauseaudio自从2000年以来真的太古老了,pipewire是一个很好的替代方案
