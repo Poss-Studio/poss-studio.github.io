@@ -23,3 +23,14 @@ imv -> Unix下标准图片查看器
 mpv -> 媒体播放器（Unix标准播放器）
 cava -> 用于显示音符变化
 pipewire -> plauseaudio自从2000年以来真的太古老了,pipewire是一个很好的替代方案
+<<<<<<< HEAD
+mpd,ncmpcpp,mpc -> CLI音乐三重奏,真神!
+emacs -> 神的编辑器
+vi/vim/neovim -> 编辑器之神(neovim男人减速带喵～!)
+joshuto -> 非常好的rust终端文件管理器(继承ranger意志) Yazi也挺好
+wshowkeys -> 用来在wayland上捕获按键情况显示
+vscodium -> 自由且安全的vscode分支,包括二进制分发文件都是可控自由的,拒绝跟踪监视
+waydroid -> Linux下高性能的Android容器方案(genymotion也挺好,用libhoudini转译方案也挺好)
+wine/Steam Proton -> 玩Windows游戏相当好的方案(2026年的Proton11上打分+DXVK补丁)
+=======
+>>>>>>> b6d28cc463eaf39c5c81c190e27c8bc01ef2df4a
