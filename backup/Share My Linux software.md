@@ -23,3 +23,7 @@ imv -> Unix下标准图片查看器
 mpv -> 媒体播放器（Unix标准播放器）
 cava -> 用于显示音符变化
 pipewire -> plauseaudio自从2000年以来真的太古老了,pipewire是一个很好的替代方案
+waybar,quickshell,noctalia-shell,dms-shell,dam+i3status(现在在用)
+关于river-classic以及dwl,dwm下调整分辨率问题:
+dwm是基于x11的,距今约10年左右没有更新了,还是用老旧的xorg-xrandr解决
+dwl是dwm的wayland实现,river-classic也是在wayland下实现的
