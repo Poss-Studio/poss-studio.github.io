@@ -23,3 +23,6 @@ imv -> Unix下标准图片查看器
 mpv -> 媒体播放器（Unix标准播放器）
 cava -> 用于显示音符变化
 pipewire -> plauseaudio自从2000年以来真的太古老了,pipewire是一个很好的替代方案
+nvim(vulkan[用neovide])->男人减速带
+emacs -> 神的编辑器
+vim -> 尽管很长时间不喜欢vimscript的语法不想弄懂但是作为编辑器之神还是值得敬佩的
