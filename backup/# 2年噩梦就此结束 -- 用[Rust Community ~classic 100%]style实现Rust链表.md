@@ -1,6 +1,9 @@
 # 困扰了我两年的Rust链表难题在此划上句号(喵～!)
 Music:
-<iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=330 height=86 src="https://music.163.com/outchain/player?type=2&id=2141578399&auto=1&height=66"></iframe>
+<audio controls>
+  <source src="https://music.163.com/song/media/outer/url?id=2141578399.mp3" type="audio/mpeg">
+  您的浏览器不支持该音频格式。
+</audio>
 ## 本人难度评价
 若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -> c++11引入
 而c实现又足够轻量
