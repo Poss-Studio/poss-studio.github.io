@@ -1,9 +1,8 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Rexim's Blog</title><link>https://poss-studio.github.io</link><description>Record My Programming and OpenSource experience(and some funny movie)</description><copyright>Rexim's Blog</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/115876698?v=4</url><title>avatar</title><link>https://poss-studio.github.io</link></image><lastBuildDate>Sat, 01 Aug 2026 11:48:04 +0000</lastBuildDate><managingEditor>Rexim's Blog</managingEditor><ttl>60</ttl><webMaster>Rexim's Blog</webMaster><item><title>2年噩梦就此结束 -&gt; 用[Rust Community ~classic 100%]style实现Rust链表</title><link>https://poss-studio.github.io/post/2-nian-e-meng-jiu-ci-jie-shu-%20--%20-yong-%5BRust%20Community%20~classic%20100%25%5Dstyle-shi-xian-Rust-lian-biao.html</link><description># 困扰了我两年的Rust链表难题在此划上句号(喵～!)
+# 困扰了我两年的Rust链表难题在此划上句号(喵～!)
 myself:
 ![Rexim is Cute](https://i1.hdslb.com/bfs/face/6836eafa82aee5085f6ba974e769920867e184ac.jpg@150w_150h.jpg)
 ## 本人难度评价
-若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -&gt; c++11引入
+若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -> c++11引入
 而c实现又足够轻量
 Java和pyhon自带gc功能而且在现在能胜任很大的数据流冲击,gc间隔造成的性能问题也不断解决,java和kotlin在这些年无畏并发有着很优雅的解决办法
 用Rust难度会指数上升,Rust是偏函数式编程的,很多时候是像Haskell那样晦涩难懂的,我本人是命令行式编程和面向对象之后学的函数式编程喵～！可爱捏
@@ -14,42 +13,42 @@ Rust里的所有权,迭代器,引用与借用,错误处理,泛型，生命周期
 use std::fmt;
 
 // ---------- 节点定义 ----------
-struct Node&lt;T&gt; {
+struct Node<T> {
     val: T,
-    next: Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;,
+    next: Option<Box<Node<T>>>,
 }
 
-impl&lt;T&gt; Node&lt;T&gt; {
-    fn new(val: T) -&gt; Self {
+impl<T> Node<T> {
+    fn new(val: T) -> Self {
         Node { val, next: None }
     }
 }
 
 // ---------- 单链表 ----------
-pub struct LinkedList&lt;T&gt; {
-    head: Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;,
+pub struct LinkedList<T> {
+    head: Option<Box<Node<T>>>,
     len: usize,
 }
 
-impl&lt;T&gt; LinkedList&lt;T&gt; {
+impl<T> LinkedList<T> {
     /// 创建空链表
-    pub fn new() -&gt; Self {
+    pub fn new() -> Self {
         LinkedList { head: None, len: 0 }
     }
 
     /// 返回链表长度
-    pub fn len(&amp;self) -&gt; usize {
+    pub fn len(&self) -> usize {
         self.len
     }
 
     /// 判断是否为空
-    pub fn is_empty(&amp;self) -&gt; bool {
+    pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     // ---------- 头部操作 ----------
     /// 头部插入
-    pub fn push_front(&amp;mut self, val: T) {
+    pub fn push_front(&mut self, val: T) {
         let new_node = Box::new(Node {
             val,
             next: self.head.take(),
@@ -59,7 +58,7 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 头部弹出
-    pub fn pop_front(&amp;mut self) -&gt; Option&lt;T&gt; {
+    pub fn pop_front(&mut self) -> Option<T> {
         self.head.take().map(|node| {
             self.head = node.next;
             self.len -= 1;
@@ -68,18 +67,18 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 查看头部元素（不可变）
-    pub fn peek_front(&amp;self) -&gt; Option&lt;&amp;T&gt; {
-        self.head.as_ref().map(|node| &amp;node.val)
+    pub fn peek_front(&self) -> Option<&T> {
+        self.head.as_ref().map(|node| &node.val)
     }
 
     /// 查看头部元素（可变）
-    pub fn peek_front_mut(&amp;mut self) -&gt; Option&lt;&amp;mut T&gt; {
-        self.head.as_mut().map(|node| &amp;mut node.val)
+    pub fn peek_front_mut(&mut self) -> Option<&mut T> {
+        self.head.as_mut().map(|node| &mut node.val)
     }
 
     // ---------- 尾部操作 ----------
     /// 尾部插入
-    pub fn push_back(&amp;mut self, val: T) {
+    pub fn push_back(&mut self, val: T) {
         let new_node = Box::new(Node { val, next: None });
 
         if self.head.is_none() {
@@ -95,7 +94,7 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 尾部弹出
-    pub fn pop_back(&amp;mut self) -&gt; Option&lt;T&gt; {
+    pub fn pop_back(&mut self) -> Option<T> {
         if self.head.is_none() {
             return None;
         }
@@ -118,11 +117,11 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 查看尾部元素（不可变）
-    pub fn peek_back(&amp;self) -&gt; Option&lt;&amp;T&gt; {
+    pub fn peek_back(&self) -> Option<&T> {
         let mut cur = self.head.as_ref();
         while let Some(node) = cur {
             if node.next.is_none() {
-                return Some(&amp;node.val);
+                return Some(&node.val);
             }
             cur = node.next.as_ref();
         }
@@ -130,11 +129,11 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 查看尾部元素（可变）
-    pub fn peek_back_mut(&amp;mut self) -&gt; Option&lt;&amp;mut T&gt; {
+    pub fn peek_back_mut(&mut self) -> Option<&mut T> {
         let mut cur = self.head.as_mut();
         while let Some(node) = cur {
             if node.next.is_none() {
-                return Some(&amp;mut node.val);
+                return Some(&mut node.val);
             }
             cur = node.next.as_mut();
         }
@@ -143,13 +142,13 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
 
     // ---------- 按值查找、删除、更新 ----------
     /// 查找值是否存在（需要 T: PartialEq）
-    pub fn contains(&amp;self, val: &amp;T) -&gt; bool
+    pub fn contains(&self, val: &T) -> bool
     where
         T: PartialEq,
     {
         let mut cur = self.head.as_ref();
         while let Some(node) = cur {
-            if &amp;node.val == val {
+            if &node.val == val {
                 return true;
             }
             cur = node.next.as_ref();
@@ -158,13 +157,13 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 删除第一个匹配的值（需要 T: PartialEq）
-    pub fn remove(&amp;mut self, val: &amp;T) -&gt; bool
+    pub fn remove(&mut self, val: &T) -> bool
     where
         T: PartialEq,
     {
         // 处理头节点
         if let Some(node) = self.head.as_mut() {
-            if &amp;node.val == val {
+            if &node.val == val {
                 self.head = node.next.take();
                 self.len -= 1;
                 return true;
@@ -174,7 +173,7 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
         let mut cur = self.head.as_mut();
         while let Some(node) = cur {
             if let Some(ref mut next_node) = node.next {
-                if &amp;next_node.val == val {
+                if &next_node.val == val {
                     node.next = next_node.next.take();
                     self.len -= 1;
                     return true;
@@ -186,13 +185,13 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 更新第一个匹配的值（需要 T: PartialEq）
-    pub fn update(&amp;mut self, old_val: &amp;T, new_val: T) -&gt; bool
+    pub fn update(&mut self, old_val: &T, new_val: T) -> bool
     where
         T: PartialEq,
     {
         let mut cur = self.head.as_mut();
         while let Some(node) = cur {
-            if &amp;node.val == old_val {
+            if &node.val == old_val {
                 node.val = new_val;
                 return true;
             }
@@ -203,32 +202,32 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
 
     // ---------- 按索引操作 ----------
     /// 按索引获取元素（不可变）
-    pub fn get(&amp;self, index: usize) -&gt; Option&lt;&amp;T&gt; {
-        if index &gt;= self.len {
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.len {
             return None;
         }
         let mut cur = self.head.as_ref();
         for _ in 0..index {
             cur = cur?.next.as_ref();
         }
-        cur.map(|node| &amp;node.val)
+        cur.map(|node| &node.val)
     }
 
     /// 按索引获取元素（可变）
-    pub fn get_mut(&amp;mut self, index: usize) -&gt; Option&lt;&amp;mut T&gt; {
-        if index &gt;= self.len {
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if index >= self.len {
             return None;
         }
         let mut cur = self.head.as_mut();
         for _ in 0..index {
             cur = cur?.next.as_mut();
         }
-        cur.map(|node| &amp;mut node.val)
+        cur.map(|node| &mut node.val)
     }
 
     /// 在指定索引插入（0 为头部，len 为尾部）
-    pub fn insert_at(&amp;mut self, index: usize, val: T) -&gt; bool {
-        if index &gt; self.len {
+    pub fn insert_at(&mut self, index: usize, val: T) -> bool {
+        if index > self.len {
             return false;
         }
         if index == 0 {
@@ -239,8 +238,8 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
         let mut cur = self.head.as_mut();
         for _ in 0..(index - 1) {
             match cur {
-                Some(node) =&gt; cur = node.next.as_mut(),
-                None =&gt; return false, // 不会发生
+                Some(node) => cur = node.next.as_mut(),
+                None => return false, // 不会发生
             }
         }
 
@@ -258,8 +257,8 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     /// 按索引删除，返回被删除的值
-    pub fn remove_at(&amp;mut self, index: usize) -&gt; Option&lt;T&gt; {
-        if index &gt;= self.len {
+    pub fn remove_at(&mut self, index: usize) -> Option<T> {
+        if index >= self.len {
             return None;
         }
         if index == 0 {
@@ -282,13 +281,13 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
     }
 
     // ---------- 迭代器 ----------
-    pub fn iter(&amp;self) -&gt; Iter&lt;T&gt; {
+    pub fn iter(&self) -> Iter<T> {
         Iter {
             next: self.head.as_deref(),
         }
     }
 
-    pub fn iter_mut(&amp;mut self) -&gt; IterMut&lt;T&gt; {
+    pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut {
             next: self.head.as_deref_mut(),
         }
@@ -296,73 +295,73 @@ impl&lt;T&gt; LinkedList&lt;T&gt; {
 }
 
 // ---------- 不可变迭代器 ----------
-pub struct Iter&lt;'a, T&gt; {
-    next: Option&lt;&amp;'a Node&lt;T&gt;&gt;,
+pub struct Iter<'a, T> {
+    next: Option<&'a Node<T>>,
 }
 
-impl&lt;'a, T&gt; Iterator for Iter&lt;'a, T&gt; {
-    type Item = &amp;'a T;
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
 
-    fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; {
+    fn next(&mut self) -> Option<Self::Item> {
         self.next.map(|node| {
             self.next = node.next.as_deref();
-            &amp;node.val
+            &node.val
         })
     }
 }
 
 // ---------- 可变迭代器 ----------
-pub struct IterMut&lt;'a, T&gt; {
-    next: Option&lt;&amp;'a mut Node&lt;T&gt;&gt;,
+pub struct IterMut<'a, T> {
+    next: Option<&'a mut Node<T>>,
 }
 
-impl&lt;'a, T&gt; Iterator for IterMut&lt;'a, T&gt; {
-    type Item = &amp;'a mut T;
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
 
-    fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; {
+    fn next(&mut self) -> Option<Self::Item> {
         self.next.take().map(|node| {
             self.next = node.next.as_deref_mut();
-            &amp;mut node.val
+            &mut node.val
         })
     }
 }
 
 // ---------- 所有权迭代器 ----------
-impl&lt;T&gt; IntoIterator for LinkedList&lt;T&gt; {
+impl<T> IntoIterator for LinkedList<T> {
     type Item = T;
-    type IntoIter = IntoIter&lt;T&gt;;
+    type IntoIter = IntoIter<T>;
 
-    fn into_iter(self) -&gt; Self::IntoIter {
+    fn into_iter(self) -> Self::IntoIter {
         IntoIter { list: self }
     }
 }
 
-pub struct IntoIter&lt;T&gt; {
-    list: LinkedList&lt;T&gt;,
+pub struct IntoIter<T> {
+    list: LinkedList<T>,
 }
 
-impl&lt;T&gt; Iterator for IntoIter&lt;T&gt; {
+impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
-    fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; {
+    fn next(&mut self) -> Option<Self::Item> {
         self.list.pop_front()
     }
 }
 
 // ---------- 实现 Display ----------
-impl&lt;T: fmt::Display&gt; fmt::Display for LinkedList&lt;T&gt; {
-    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+impl<T: fmt::Display> fmt::Display for LinkedList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parts = Vec::new();
         for val in self.iter() {
-            parts.push(format!('{}', val));
+            parts.push(format!("{}", val));
         }
-        write!(f, '[{}]', parts.join(' -&gt; '))
+        write!(f, "[{}]", parts.join(" -> "))
     }
 }
 
 // ---------- Drop：手动实现防止长链表栈溢出 ----------
-impl&lt;T&gt; Drop for LinkedList&lt;T&gt; {
-    fn drop(&amp;mut self) {
+impl<T> Drop for LinkedList<T> {
+    fn drop(&mut self) {
         let mut cur = self.head.take();
         while let Some(mut node) = cur {
             cur = node.next.take();
@@ -403,9 +402,9 @@ mod tests {
         list.push_back(1);
         list.push_back(2);
         list.push_back(3);
-        assert!(list.remove(&amp;2));
-        assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;1, &amp;3]);
-        assert!(!list.remove(&amp;4));
+        assert!(list.remove(&2));
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &3]);
+        assert!(!list.remove(&4));
     }
 
     #[test]
@@ -413,8 +412,8 @@ mod tests {
         let mut list = LinkedList::new();
         list.push_back(1);
         list.push_back(2);
-        list.update(&amp;2, 99);
-        assert_eq!(list.get(1), Some(&amp;99));
+        list.update(&2, 99);
+        assert_eq!(list.get(1), Some(&99));
     }
 
     #[test]
@@ -423,11 +422,11 @@ mod tests {
         list.push_back(1);
         list.push_back(3);
         list.insert_at(1, 2);
-        assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;1, &amp;2, &amp;3]);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
         list.insert_at(0, 0);
-        assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;0, &amp;1, &amp;2, &amp;3]);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&0, &1, &2, &3]);
         list.insert_at(4, 4);
-        assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;0, &amp;1, &amp;2, &amp;3, &amp;4]);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&0, &1, &2, &3, &4]);
     }
 
     #[test]
@@ -437,9 +436,9 @@ mod tests {
         list.push_back(2);
         list.push_back(3);
         assert_eq!(list.remove_at(1), Some(2));
-        assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;1, &amp;3]);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &3]);
         assert_eq!(list.remove_at(0), Some(1));
-        assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;3]);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&3]);
         assert_eq!(list.remove_at(0), Some(3));
         assert!(list.is_empty());
     }
@@ -449,10 +448,10 @@ mod tests {
         let mut list = LinkedList::new();
         list.push_back(1);
         list.push_back(2);
-        assert_eq!(list.peek_front(), Some(&amp;1));
-        assert_eq!(list.peek_back(), Some(&amp;2));
+        assert_eq!(list.peek_front(), Some(&1));
+        assert_eq!(list.peek_back(), Some(&2));
         *list.peek_front_mut().unwrap() = 9;
-        assert_eq!(list.peek_front(), Some(&amp;9));
+        assert_eq!(list.peek_front(), Some(&9));
     }
 
     #[test]
@@ -460,7 +459,7 @@ mod tests {
         let mut list = LinkedList::new();
         list.push_back(1);
         list.push_back(2);
-        let collected: Vec&lt;i32&gt; = list.into_iter().collect();
+        let collected: Vec<i32> = list.into_iter().collect();
         assert_eq!(collected, vec![1, 2]);
     }
 }
@@ -472,59 +471,30 @@ fn main() {
     list.push_back(10);
     list.push_back(20);
     list.push_front(5);
-    println!('链表: {}', list); // [5 -&gt; 10 -&gt; 20]
+    println!("链表: {}", list); // [5 -> 10 -> 20]
 
     // 更新
-    list.update(&amp;20, 99);
-    println!('更新 20 -&gt; 99 后: {}', list); // [5 -&gt; 10 -&gt; 99]
+    list.update(&20, 99);
+    println!("更新 20 -> 99 后: {}", list); // [5 -> 10 -> 99]
 
     // 删除
-    list.remove(&amp;10);
-    println!('删除 10 后: {}', list); // [5 -&gt; 99]
+    list.remove(&10);
+    println!("删除 10 后: {}", list); // [5 -> 99]
 
     // 按索引插入
     list.insert_at(1, 88);
-    println!('在索引 1 插入 88: {}', list); // [5 -&gt; 88 -&gt; 99]
+    println!("在索引 1 插入 88: {}", list); // [5 -> 88 -> 99]
 
     // 按索引删除
     list.remove_at(0);
-    println!('删除索引 0 后: {}', list); // [88 -&gt; 99]
+    println!("删除索引 0 后: {}", list); // [88 -> 99]
 
     // 迭代
     for val in list.iter() {
-        println!('iter: {}', val);
+        println!("iter: {}", val);
     }
 }
 ```
 # Author :Poss-Rexim
 where can find  me?
-![喵~!以后就是朋友了](ddt1472582022@outlook.com)。</description><guid isPermaLink="true">https://poss-studio.github.io/post/2-nian-e-meng-jiu-ci-jie-shu-%20--%20-yong-%5BRust%20Community%20~classic%20100%25%5Dstyle-shi-xian-Rust-lian-biao.html</guid><pubDate>Sat, 01 Aug 2026 08:36:16 +0000</pubDate></item><item><title>Share My Linux software</title><link>https://poss-studio.github.io/post/Share%20My%20Linux%20software.html</link><description># 这里是你们的Rexim喵~!🐱
-# --发行版 -- 
-Archlinux 1台, NixOS一台,FreeBSD一台
-# 关于我的linux内核
-linux-zen linux-cachyos,早些时候intel还没有放弃clear linux的时候还用过linux-clear(真的挺喜欢的)
-# 关于窗口管理器
-其实我个人并不需要桌面环境,对于我一个重度编程爱好者来说,拥有一个稳定的工作区更重要喵~!
-我在这方面折腾过很长时间:
-i3wm --&gt; swaywm(i3wm的wayland实现,开发者比较保守) --&gt; river-classic(现在正在使用喵~!)  相当好用
-我私下的探索dwm,好像还有一个深度定制的cwm也挺好,dwm的wayland实现dwl,中期在codeberg上短暂出现开发者缺口
-Niri 和hyprland都试过,动画很好看,niri的操作逻辑我个人不是很习惯,所以我还是用回了river-classic
-现在river已经变成了一个纯粹的wayland合成器了,不提供窗口管理,river-classic相对于i3wm,sway等并不开箱即用
-# 关于窗口管理器的微调和依赖软件包
-mako -&gt; 用来提示通知的
-wlroots0.20 ,pixman,tllist-&gt; doc相关基础依赖
-i3status | dam -&gt; 适用于river-classic的状态栏(很Suckless)
-swaybg -&gt; sway继承下来的用来设置壁纸
-gammastep -&gt;用来设置夜间模式
-fcitx5,fcitx5-im,fcitx5-chinese-addons -&gt; linux下除了ibus的中文输入法解决方案
-wmenu -&gt; 符合Unix管道哲学的应用程序启动器(过滤器) -&lt; 万能的模糊搜索
-foot -&gt; 利用率相当高的终端,用cpu渲染,极致的算法,常采用C\S架构
-imv -&gt; Unix下标准图片查看器
-mpv -&gt; 媒体播放器（Unix标准播放器）
-cava -&gt; 用于显示音符变化
-pipewire -&gt; plauseaudio自从2000年以来真的太古老了,pipewire是一个很好的替代方案
-nvim(vulkan[用neovide])-&gt;男人减速带
-emacs -&gt; 神的编辑器
-vim -&gt; 尽管很长时间不喜欢vimscript的语法不想弄懂但是作为编辑器之神还是值得敬佩的。</description><guid isPermaLink="true">https://poss-studio.github.io/post/Share%20My%20Linux%20software.html</guid><pubDate>Thu, 16 Jul 2026 13:40:48 +0000</pubDate></item><item><title>#1 Hello,World</title><link>https://poss-studio.github.io/post/%231%20Hello%2CWorld.html</link><description># Hello,World!
-This is Femboy Rexim's blog!
-![Cute Boy](https://i1.hdslb.com/bfs/face/6836eafa82aee5085f6ba974e769920867e184ac.jpg@150w_150h.jpg)。</description><guid isPermaLink="true">https://poss-studio.github.io/post/%231%20Hello%2CWorld.html</guid><pubDate>Sun, 12 Jul 2026 00:17:00 +0000</pubDate></item></channel></rss>
+![喵~!以后就是朋友了](ddt1472582022@outlook.com)
