@@ -1,10 +1,12 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Rexim's Blog</title><link>https://poss-studio.github.io</link><description>Record My Programming and OpenSource experience(and some funny movie)</description><copyright>Rexim's Blog</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/115876698?v=4</url><title>avatar</title><link>https://poss-studio.github.io</link></image><lastBuildDate>Sat, 01 Aug 2026 08:36:53 +0000</lastBuildDate><managingEditor>Rexim's Blog</managingEditor><ttl>60</ttl><webMaster>Rexim's Blog</webMaster><item><title># 2年噩梦就此结束 -&gt; 用[Rust Community ~classic 100%]style实现Rust链表</title><link>https://poss-studio.github.io/post/%23%202-nian-e-meng-jiu-ci-jie-shu-%20--%20-yong-%5BRust%20Community%20~classic%20100%25%5Dstyle-shi-xian-Rust-lian-biao.html</link><description># 困扰了我两年的Rust链表难题在此划上句号(喵～!)
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0"><channel><title>Rexim's Blog</title><link>https://poss-studio.github.io</link><description>Record My Programming and OpenSource experience(and some funny movie)</description><copyright>Rexim's Blog</copyright><docs>http://www.rssboard.org/rss-specification</docs><generator>python-feedgen</generator><image><url>https://avatars.githubusercontent.com/u/115876698?v=4</url><title>avatar</title><link>https://poss-studio.github.io</link></image><lastBuildDate>Sat, 01 Aug 2026 08:44:56 +0000</lastBuildDate><managingEditor>Rexim's Blog</managingEditor><ttl>60</ttl><webMaster>Rexim's Blog</webMaster><item><title># 2年噩梦就此结束 -&gt; 用[Rust Community ~classic 100%]style实现Rust链表</title><link>https://poss-studio.github.io/post/%23%202-nian-e-meng-jiu-ci-jie-shu-%20--%20-yong-%5BRust%20Community%20~classic%20100%25%5Dstyle-shi-xian-Rust-lian-biao.html</link><description># 困扰了我两年的Rust链表难题在此划上句号(喵～!)
+Music:
+&lt;iframe frameborder='no' border='0' marginwidth='0' marginheight='0' width=330 height=86 src='https://music.163.com/outchain/player?type=2&amp;id=2141578399&amp;auto=1&amp;height=66'&gt;&lt;/iframe&gt;
 ## 本人难度评价
 若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -&gt; c++11引入
 而c实现又足够轻量
 Java和pyhon自带gc功能而且在现在能胜任很大的数据流冲击,gc间隔造成的性能问题也不断解决,java和kotlin在这些年无畏并发有着很优雅的解决办法
-用Rust难度会指数上升,Rust是偏函数式编程的,很多时候是像Haskell那样晦涩难懂的,我本人是面向对象之后学的函数式编程喵～！可爱捏
+用Rust难度会指数上升,Rust是偏函数式编程的,很多时候是像Haskell那样晦涩难懂的,我本人是命令行式编程和面向对象之后学的函数式编程喵～！可爱捏
 Rust里的所有权,迭代器,引用与借用,错误处理,泛型，生命周期，组织源码test等让人烦恼,但是在我的不断练习和磨练，复习函数式编程成功实现了喵～！
 ## 项目地址:![可爱喵,欢迎参考](https://github.com/Poss-Studio/Rust_LinkList/blob/main/src/main.rs)
 ``` rust
