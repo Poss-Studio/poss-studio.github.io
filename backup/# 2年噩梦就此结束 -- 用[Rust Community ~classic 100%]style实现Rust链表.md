@@ -1,6 +1,6 @@
 # 困扰了我两年的Rust链表难题在此划上句号(喵～!)
 myself:
-![Rexim is Cute]("https://avatars.githubusercontent.com/u/115876698?v=4")
+![Rexim is Cute](https://i1.hdslb.com/bfs/face/6836eafa82aee5085f6ba974e769920867e184ac.jpg@150w_150h.jpg)
 ## 本人难度评价
 若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -> c++11引入
 而c实现又足够轻量
