@@ -1,8 +1,6 @@
 # 困扰了我两年的Rust链表难题在此划上句号(喵～!)
-Music:
-<audio controls style="width: 100%; max-width: 400px; margin: 10px 0;">
-  <source src="https://music.163.com/song/media/outer/url?id=2141578399.mp3" type="audio/mpeg">
-</audio>
+myself:
+![Rexim is Cute]("https://avatars.githubusercontent.com/u/115876698?v=4")
 ## 本人难度评价
 若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -> c++11引入
 而c实现又足够轻量
