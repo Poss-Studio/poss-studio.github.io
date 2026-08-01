@@ -1,8 +1,7 @@
 # 困扰了我两年的Rust链表难题在此划上句号(喵～!)
 Music:
-<audio controls>
+<audio controls style="width: 100%; max-width: 400px; margin: 10px 0;">
   <source src="https://music.163.com/song/media/outer/url?id=2141578399.mp3" type="audio/mpeg">
-  您的浏览器不支持该音频格式。
 </audio>
 ## 本人难度评价
 若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -> c++11引入
@@ -11,6 +10,7 @@ Java和pyhon自带gc功能而且在现在能胜任很大的数据流冲击,gc间
 用Rust难度会指数上升,Rust是偏函数式编程的,很多时候是像Haskell那样晦涩难懂的,我本人是命令行式编程和面向对象之后学的函数式编程喵～！可爱捏
 Rust里的所有权,迭代器,引用与借用,错误处理,泛型，生命周期，组织源码test等让人烦恼,但是在我的不断练习和磨练，复习函数式编程成功实现了喵～！
 ## 项目地址:![可爱喵,欢迎参考](https://github.com/Poss-Studio/Rust_LinkList/blob/main/src/main.rs)
+
 ``` rust
 use std::fmt;
 

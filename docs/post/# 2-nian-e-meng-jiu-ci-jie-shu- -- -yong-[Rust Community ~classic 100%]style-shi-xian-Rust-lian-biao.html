@@ -12,20 +12,1014 @@
     </script>
 <meta name="description" content="# 困扰了我两年的Rust链表难题在此划上句号(喵～!)
 Music:
-<audio controls>
+<audio controls style='width: 100%; max-width: 400px; margin: 10px 0;'>
   <source src='https://music.163.com/song/media/outer/url?id=2141578399.mp3' type='audio/mpeg'>
-  您的浏览器不支持该音频格式。">
+</audio>
+## 本人难度评价
+若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -> c++11引入
+而c实现又足够轻量
+Java和pyhon自带gc功能而且在现在能胜任很大的数据流冲击,gc间隔造成的性能问题也不断解决,java和kotlin在这些年无畏并发有着很优雅的解决办法
+用Rust难度会指数上升,Rust是偏函数式编程的,很多时候是像Haskell那样晦涩难懂的,我本人是命令行式编程和面向对象之后学的函数式编程喵～！可爱捏
+Rust里的所有权,迭代器,引用与借用,错误处理,泛型，生命周期，组织源码test等让人烦恼,但是在我的不断练习和磨练，复习函数式编程成功实现了喵～！
+## 项目地址:![可爱喵,欢迎参考](https://github.com/Poss-Studio/Rust_LinkList/blob/main/src/main.rs)
+
+``` rust
+use std::fmt;
+
+// ---------- 节点定义 ----------
+struct Node<T> {
+    val: T,
+    next: Option<Box<Node<T>>>,
+}
+
+impl<T> Node<T> {
+    fn new(val: T) -> Self {
+        Node { val, next: None }
+    }
+}
+
+// ---------- 单链表 ----------
+pub struct LinkedList<T> {
+    head: Option<Box<Node<T>>>,
+    len: usize,
+}
+
+impl<T> LinkedList<T> {
+    /// 创建空链表
+    pub fn new() -> Self {
+        LinkedList { head: None, len: 0 }
+    }
+
+    /// 返回链表长度
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// 判断是否为空
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    // ---------- 头部操作 ----------
+    /// 头部插入
+    pub fn push_front(&mut self, val: T) {
+        let new_node = Box::new(Node {
+            val,
+            next: self.head.take(),
+        });
+        self.head = Some(new_node);
+        self.len += 1;
+    }
+
+    /// 头部弹出
+    pub fn pop_front(&mut self) -> Option<T> {
+        self.head.take().map(|node| {
+            self.head = node.next;
+            self.len -= 1;
+            node.val
+        })
+    }
+
+    /// 查看头部元素（不可变）
+    pub fn peek_front(&self) -> Option<&T> {
+        self.head.as_ref().map(|node| &node.val)
+    }
+
+    /// 查看头部元素（可变）
+    pub fn peek_front_mut(&mut self) -> Option<&mut T> {
+        self.head.as_mut().map(|node| &mut node.val)
+    }
+
+    // ---------- 尾部操作 ----------
+    /// 尾部插入
+    pub fn push_back(&mut self, val: T) {
+        let new_node = Box::new(Node { val, next: None });
+
+        if self.head.is_none() {
+            self.head = Some(new_node);
+        } else {
+            let mut cur = self.head.as_mut().unwrap();
+            while let Some(ref mut next) = cur.next {
+                cur = next;
+            }
+            cur.next = Some(new_node);
+        }
+        self.len += 1;
+    }
+
+    /// 尾部弹出
+    pub fn pop_back(&mut self) -> Option<T> {
+        if self.head.is_none() {
+            return None;
+        }
+        // 只有一个节点
+        if self.head.as_ref().unwrap().next.is_none() {
+            return self.pop_front();
+        }
+
+        let mut cur = self.head.as_mut().unwrap();
+        while let Some(next) = cur.next.as_mut() {
+            if next.next.is_none() {
+                // 取出尾节点
+                let tail = cur.next.take();
+                self.len -= 1;
+                return tail.map(|boxed| boxed.val);
+            }
+            cur = cur.next.as_mut().unwrap();
+        }
+        None
+    }
+
+    /// 查看尾部元素（不可变）
+    pub fn peek_back(&self) -> Option<&T> {
+        let mut cur = self.head.as_ref();
+        while let Some(node) = cur {
+            if node.next.is_none() {
+                return Some(&node.val);
+            }
+            cur = node.next.as_ref();
+        }
+        None
+    }
+
+    /// 查看尾部元素（可变）
+    pub fn peek_back_mut(&mut self) -> Option<&mut T> {
+        let mut cur = self.head.as_mut();
+        while let Some(node) = cur {
+            if node.next.is_none() {
+                return Some(&mut node.val);
+            }
+            cur = node.next.as_mut();
+        }
+        None
+    }
+
+    // ---------- 按值查找、删除、更新 ----------
+    /// 查找值是否存在（需要 T: PartialEq）
+    pub fn contains(&self, val: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        let mut cur = self.head.as_ref();
+        while let Some(node) = cur {
+            if &node.val == val {
+                return true;
+            }
+            cur = node.next.as_ref();
+        }
+        false
+    }
+
+    /// 删除第一个匹配的值（需要 T: PartialEq）
+    pub fn remove(&mut self, val: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        // 处理头节点
+        if let Some(node) = self.head.as_mut() {
+            if &node.val == val {
+                self.head = node.next.take();
+                self.len -= 1;
+                return true;
+            }
+        }
+
+        let mut cur = self.head.as_mut();
+        while let Some(node) = cur {
+            if let Some(ref mut next_node) = node.next {
+                if &next_node.val == val {
+                    node.next = next_node.next.take();
+                    self.len -= 1;
+                    return true;
+                }
+            }
+            cur = node.next.as_mut();
+        }
+        false
+    }
+
+    /// 更新第一个匹配的值（需要 T: PartialEq）
+    pub fn update(&mut self, old_val: &T, new_val: T) -> bool
+    where
+        T: PartialEq,
+    {
+        let mut cur = self.head.as_mut();
+        while let Some(node) = cur {
+            if &node.val == old_val {
+                node.val = new_val;
+                return true;
+            }
+            cur = node.next.as_mut();
+        }
+        false
+    }
+
+    // ---------- 按索引操作 ----------
+    /// 按索引获取元素（不可变）
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.len {
+            return None;
+        }
+        let mut cur = self.head.as_ref();
+        for _ in 0..index {
+            cur = cur?.next.as_ref();
+        }
+        cur.map(|node| &node.val)
+    }
+
+    /// 按索引获取元素（可变）
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if index >= self.len {
+            return None;
+        }
+        let mut cur = self.head.as_mut();
+        for _ in 0..index {
+            cur = cur?.next.as_mut();
+        }
+        cur.map(|node| &mut node.val)
+    }
+
+    /// 在指定索引插入（0 为头部，len 为尾部）
+    pub fn insert_at(&mut self, index: usize, val: T) -> bool {
+        if index > self.len {
+            return false;
+        }
+        if index == 0 {
+            self.push_front(val);
+            return true;
+        }
+
+        let mut cur = self.head.as_mut();
+        for _ in 0..(index - 1) {
+            match cur {
+                Some(node) => cur = node.next.as_mut(),
+                None => return false, // 不会发生
+            }
+        }
+
+        if let Some(prev) = cur {
+            let new_node = Box::new(Node {
+                val,
+                next: prev.next.take(),
+            });
+            prev.next = Some(new_node);
+            self.len += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// 按索引删除，返回被删除的值
+    pub fn remove_at(&mut self, index: usize) -> Option<T> {
+        if index >= self.len {
+            return None;
+        }
+        if index == 0 {
+            return self.pop_front();
+        }
+
+        let mut cur = self.head.as_mut();
+        for _ in 0..(index - 1) {
+            cur = cur?.next.as_mut();
+        }
+
+        if let Some(prev) = cur {
+            if let Some(mut node) = prev.next.take() {
+                prev.next = node.next.take();
+                self.len -= 1;
+                return Some(node.val);
+            }
+        }
+        None
+    }
+
+    // ---------- 迭代器 ----------
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            next: self.head.as_deref(),
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut {
+            next: self.head.as_deref_mut(),
+        }
+    }
+}
+
+// ---------- 不可变迭代器 ----------
+pub struct Iter<'a, T> {
+    next: Option<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|node| {
+            self.next = node.next.as_deref();
+            &node.val
+        })
+    }
+}
+
+// ---------- 可变迭代器 ----------
+pub struct IterMut<'a, T> {
+    next: Option<&'a mut Node<T>>,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node| {
+            self.next = node.next.as_deref_mut();
+            &mut node.val
+        })
+    }
+}
+
+// ---------- 所有权迭代器 ----------
+impl<T> IntoIterator for LinkedList<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter { list: self }
+    }
+}
+
+pub struct IntoIter<T> {
+    list: LinkedList<T>,
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.list.pop_front()
+    }
+}
+
+// ---------- 实现 Display ----------
+impl<T: fmt::Display> fmt::Display for LinkedList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut parts = Vec::new();
+        for val in self.iter() {
+            parts.push(format!('{}', val));
+        }
+        write!(f, '[{}]', parts.join(' -> '))
+    }
+}
+
+// ---------- Drop：手动实现防止长链表栈溢出 ----------
+impl<T> Drop for LinkedList<T> {
+    fn drop(&mut self) {
+        let mut cur = self.head.take();
+        while let Some(mut node) = cur {
+            cur = node.next.take();
+        }
+    }
+}
+
+// ---------- 测试 ----------
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_push_pop_front() {
+        let mut list = LinkedList::new();
+        list.push_front(1);
+        list.push_front(2);
+        assert_eq!(list.pop_front(), Some(2));
+        assert_eq!(list.pop_front(), Some(1));
+        assert_eq!(list.pop_front(), None);
+    }
+
+    #[test]
+    fn test_push_pop_back() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        assert_eq!(list.pop_back(), Some(3));
+        assert_eq!(list.pop_back(), Some(2));
+        assert_eq!(list.pop_back(), Some(1));
+        assert_eq!(list.pop_back(), None);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        assert!(list.remove(&2));
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &3]);
+        assert!(!list.remove(&4));
+    }
+
+    #[test]
+    fn test_update() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.update(&2, 99);
+        assert_eq!(list.get(1), Some(&99));
+    }
+
+    #[test]
+    fn test_insert_at() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(3);
+        list.insert_at(1, 2);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
+        list.insert_at(0, 0);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&0, &1, &2, &3]);
+        list.insert_at(4, 4);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&0, &1, &2, &3, &4]);
+    }
+
+    #[test]
+    fn test_remove_at() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        assert_eq!(list.remove_at(1), Some(2));
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &3]);
+        assert_eq!(list.remove_at(0), Some(1));
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&3]);
+        assert_eq!(list.remove_at(0), Some(3));
+        assert!(list.is_empty());
+    }
+
+    #[test]
+    fn test_peek() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        assert_eq!(list.peek_front(), Some(&1));
+        assert_eq!(list.peek_back(), Some(&2));
+        *list.peek_front_mut().unwrap() = 9;
+        assert_eq!(list.peek_front(), Some(&9));
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        let collected: Vec<i32> = list.into_iter().collect();
+        assert_eq!(collected, vec![1, 2]);
+    }
+}
+
+fn main() {
+    let mut list = LinkedList::new();
+
+    // 插入
+    list.push_back(10);
+    list.push_back(20);
+    list.push_front(5);
+    println!('链表: {}', list); // [5 -> 10 -> 20]
+
+    // 更新
+    list.update(&20, 99);
+    println!('更新 20 -> 99 后: {}', list); // [5 -> 10 -> 99]
+
+    // 删除
+    list.remove(&10);
+    println!('删除 10 后: {}', list); // [5 -> 99]
+
+    // 按索引插入
+    list.insert_at(1, 88);
+    println!('在索引 1 插入 88: {}', list); // [5 -> 88 -> 99]
+
+    // 按索引删除
+    list.remove_at(0);
+    println!('删除索引 0 后: {}', list); // [88 -> 99]
+
+    // 迭代
+    for val in list.iter() {
+        println!('iter: {}', val);
+    }
+}
+```
+# Author :Poss-Rexim
+where can find  me?
+![喵~!以后就是朋友了](ddt1472582022@outlook.com)。">
 <meta property="og:title" content="# 2年噩梦就此结束 -> 用[Rust Community ~classic 100%]style实现Rust链表">
 <meta property="og:description" content="# 困扰了我两年的Rust链表难题在此划上句号(喵～!)
 Music:
-<audio controls>
+<audio controls style='width: 100%; max-width: 400px; margin: 10px 0;'>
   <source src='https://music.163.com/song/media/outer/url?id=2141578399.mp3' type='audio/mpeg'>
-  您的浏览器不支持该音频格式。">
+</audio>
+## 本人难度评价
+若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -> c++11引入
+而c实现又足够轻量
+Java和pyhon自带gc功能而且在现在能胜任很大的数据流冲击,gc间隔造成的性能问题也不断解决,java和kotlin在这些年无畏并发有着很优雅的解决办法
+用Rust难度会指数上升,Rust是偏函数式编程的,很多时候是像Haskell那样晦涩难懂的,我本人是命令行式编程和面向对象之后学的函数式编程喵～！可爱捏
+Rust里的所有权,迭代器,引用与借用,错误处理,泛型，生命周期，组织源码test等让人烦恼,但是在我的不断练习和磨练，复习函数式编程成功实现了喵～！
+## 项目地址:![可爱喵,欢迎参考](https://github.com/Poss-Studio/Rust_LinkList/blob/main/src/main.rs)
+
+``` rust
+use std::fmt;
+
+// ---------- 节点定义 ----------
+struct Node<T> {
+    val: T,
+    next: Option<Box<Node<T>>>,
+}
+
+impl<T> Node<T> {
+    fn new(val: T) -> Self {
+        Node { val, next: None }
+    }
+}
+
+// ---------- 单链表 ----------
+pub struct LinkedList<T> {
+    head: Option<Box<Node<T>>>,
+    len: usize,
+}
+
+impl<T> LinkedList<T> {
+    /// 创建空链表
+    pub fn new() -> Self {
+        LinkedList { head: None, len: 0 }
+    }
+
+    /// 返回链表长度
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// 判断是否为空
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    // ---------- 头部操作 ----------
+    /// 头部插入
+    pub fn push_front(&mut self, val: T) {
+        let new_node = Box::new(Node {
+            val,
+            next: self.head.take(),
+        });
+        self.head = Some(new_node);
+        self.len += 1;
+    }
+
+    /// 头部弹出
+    pub fn pop_front(&mut self) -> Option<T> {
+        self.head.take().map(|node| {
+            self.head = node.next;
+            self.len -= 1;
+            node.val
+        })
+    }
+
+    /// 查看头部元素（不可变）
+    pub fn peek_front(&self) -> Option<&T> {
+        self.head.as_ref().map(|node| &node.val)
+    }
+
+    /// 查看头部元素（可变）
+    pub fn peek_front_mut(&mut self) -> Option<&mut T> {
+        self.head.as_mut().map(|node| &mut node.val)
+    }
+
+    // ---------- 尾部操作 ----------
+    /// 尾部插入
+    pub fn push_back(&mut self, val: T) {
+        let new_node = Box::new(Node { val, next: None });
+
+        if self.head.is_none() {
+            self.head = Some(new_node);
+        } else {
+            let mut cur = self.head.as_mut().unwrap();
+            while let Some(ref mut next) = cur.next {
+                cur = next;
+            }
+            cur.next = Some(new_node);
+        }
+        self.len += 1;
+    }
+
+    /// 尾部弹出
+    pub fn pop_back(&mut self) -> Option<T> {
+        if self.head.is_none() {
+            return None;
+        }
+        // 只有一个节点
+        if self.head.as_ref().unwrap().next.is_none() {
+            return self.pop_front();
+        }
+
+        let mut cur = self.head.as_mut().unwrap();
+        while let Some(next) = cur.next.as_mut() {
+            if next.next.is_none() {
+                // 取出尾节点
+                let tail = cur.next.take();
+                self.len -= 1;
+                return tail.map(|boxed| boxed.val);
+            }
+            cur = cur.next.as_mut().unwrap();
+        }
+        None
+    }
+
+    /// 查看尾部元素（不可变）
+    pub fn peek_back(&self) -> Option<&T> {
+        let mut cur = self.head.as_ref();
+        while let Some(node) = cur {
+            if node.next.is_none() {
+                return Some(&node.val);
+            }
+            cur = node.next.as_ref();
+        }
+        None
+    }
+
+    /// 查看尾部元素（可变）
+    pub fn peek_back_mut(&mut self) -> Option<&mut T> {
+        let mut cur = self.head.as_mut();
+        while let Some(node) = cur {
+            if node.next.is_none() {
+                return Some(&mut node.val);
+            }
+            cur = node.next.as_mut();
+        }
+        None
+    }
+
+    // ---------- 按值查找、删除、更新 ----------
+    /// 查找值是否存在（需要 T: PartialEq）
+    pub fn contains(&self, val: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        let mut cur = self.head.as_ref();
+        while let Some(node) = cur {
+            if &node.val == val {
+                return true;
+            }
+            cur = node.next.as_ref();
+        }
+        false
+    }
+
+    /// 删除第一个匹配的值（需要 T: PartialEq）
+    pub fn remove(&mut self, val: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        // 处理头节点
+        if let Some(node) = self.head.as_mut() {
+            if &node.val == val {
+                self.head = node.next.take();
+                self.len -= 1;
+                return true;
+            }
+        }
+
+        let mut cur = self.head.as_mut();
+        while let Some(node) = cur {
+            if let Some(ref mut next_node) = node.next {
+                if &next_node.val == val {
+                    node.next = next_node.next.take();
+                    self.len -= 1;
+                    return true;
+                }
+            }
+            cur = node.next.as_mut();
+        }
+        false
+    }
+
+    /// 更新第一个匹配的值（需要 T: PartialEq）
+    pub fn update(&mut self, old_val: &T, new_val: T) -> bool
+    where
+        T: PartialEq,
+    {
+        let mut cur = self.head.as_mut();
+        while let Some(node) = cur {
+            if &node.val == old_val {
+                node.val = new_val;
+                return true;
+            }
+            cur = node.next.as_mut();
+        }
+        false
+    }
+
+    // ---------- 按索引操作 ----------
+    /// 按索引获取元素（不可变）
+    pub fn get(&self, index: usize) -> Option<&T> {
+        if index >= self.len {
+            return None;
+        }
+        let mut cur = self.head.as_ref();
+        for _ in 0..index {
+            cur = cur?.next.as_ref();
+        }
+        cur.map(|node| &node.val)
+    }
+
+    /// 按索引获取元素（可变）
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if index >= self.len {
+            return None;
+        }
+        let mut cur = self.head.as_mut();
+        for _ in 0..index {
+            cur = cur?.next.as_mut();
+        }
+        cur.map(|node| &mut node.val)
+    }
+
+    /// 在指定索引插入（0 为头部，len 为尾部）
+    pub fn insert_at(&mut self, index: usize, val: T) -> bool {
+        if index > self.len {
+            return false;
+        }
+        if index == 0 {
+            self.push_front(val);
+            return true;
+        }
+
+        let mut cur = self.head.as_mut();
+        for _ in 0..(index - 1) {
+            match cur {
+                Some(node) => cur = node.next.as_mut(),
+                None => return false, // 不会发生
+            }
+        }
+
+        if let Some(prev) = cur {
+            let new_node = Box::new(Node {
+                val,
+                next: prev.next.take(),
+            });
+            prev.next = Some(new_node);
+            self.len += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// 按索引删除，返回被删除的值
+    pub fn remove_at(&mut self, index: usize) -> Option<T> {
+        if index >= self.len {
+            return None;
+        }
+        if index == 0 {
+            return self.pop_front();
+        }
+
+        let mut cur = self.head.as_mut();
+        for _ in 0..(index - 1) {
+            cur = cur?.next.as_mut();
+        }
+
+        if let Some(prev) = cur {
+            if let Some(mut node) = prev.next.take() {
+                prev.next = node.next.take();
+                self.len -= 1;
+                return Some(node.val);
+            }
+        }
+        None
+    }
+
+    // ---------- 迭代器 ----------
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            next: self.head.as_deref(),
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut {
+            next: self.head.as_deref_mut(),
+        }
+    }
+}
+
+// ---------- 不可变迭代器 ----------
+pub struct Iter<'a, T> {
+    next: Option<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|node| {
+            self.next = node.next.as_deref();
+            &node.val
+        })
+    }
+}
+
+// ---------- 可变迭代器 ----------
+pub struct IterMut<'a, T> {
+    next: Option<&'a mut Node<T>>,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node| {
+            self.next = node.next.as_deref_mut();
+            &mut node.val
+        })
+    }
+}
+
+// ---------- 所有权迭代器 ----------
+impl<T> IntoIterator for LinkedList<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter { list: self }
+    }
+}
+
+pub struct IntoIter<T> {
+    list: LinkedList<T>,
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.list.pop_front()
+    }
+}
+
+// ---------- 实现 Display ----------
+impl<T: fmt::Display> fmt::Display for LinkedList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut parts = Vec::new();
+        for val in self.iter() {
+            parts.push(format!('{}', val));
+        }
+        write!(f, '[{}]', parts.join(' -> '))
+    }
+}
+
+// ---------- Drop：手动实现防止长链表栈溢出 ----------
+impl<T> Drop for LinkedList<T> {
+    fn drop(&mut self) {
+        let mut cur = self.head.take();
+        while let Some(mut node) = cur {
+            cur = node.next.take();
+        }
+    }
+}
+
+// ---------- 测试 ----------
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_push_pop_front() {
+        let mut list = LinkedList::new();
+        list.push_front(1);
+        list.push_front(2);
+        assert_eq!(list.pop_front(), Some(2));
+        assert_eq!(list.pop_front(), Some(1));
+        assert_eq!(list.pop_front(), None);
+    }
+
+    #[test]
+    fn test_push_pop_back() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        assert_eq!(list.pop_back(), Some(3));
+        assert_eq!(list.pop_back(), Some(2));
+        assert_eq!(list.pop_back(), Some(1));
+        assert_eq!(list.pop_back(), None);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        assert!(list.remove(&2));
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &3]);
+        assert!(!list.remove(&4));
+    }
+
+    #[test]
+    fn test_update() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.update(&2, 99);
+        assert_eq!(list.get(1), Some(&99));
+    }
+
+    #[test]
+    fn test_insert_at() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(3);
+        list.insert_at(1, 2);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &2, &3]);
+        list.insert_at(0, 0);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&0, &1, &2, &3]);
+        list.insert_at(4, 4);
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&0, &1, &2, &3, &4]);
+    }
+
+    #[test]
+    fn test_remove_at() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        assert_eq!(list.remove_at(1), Some(2));
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&1, &3]);
+        assert_eq!(list.remove_at(0), Some(1));
+        assert_eq!(list.iter().collect::<Vec<_>>(), vec![&3]);
+        assert_eq!(list.remove_at(0), Some(3));
+        assert!(list.is_empty());
+    }
+
+    #[test]
+    fn test_peek() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        assert_eq!(list.peek_front(), Some(&1));
+        assert_eq!(list.peek_back(), Some(&2));
+        *list.peek_front_mut().unwrap() = 9;
+        assert_eq!(list.peek_front(), Some(&9));
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let mut list = LinkedList::new();
+        list.push_back(1);
+        list.push_back(2);
+        let collected: Vec<i32> = list.into_iter().collect();
+        assert_eq!(collected, vec![1, 2]);
+    }
+}
+
+fn main() {
+    let mut list = LinkedList::new();
+
+    // 插入
+    list.push_back(10);
+    list.push_back(20);
+    list.push_front(5);
+    println!('链表: {}', list); // [5 -> 10 -> 20]
+
+    // 更新
+    list.update(&20, 99);
+    println!('更新 20 -> 99 后: {}', list); // [5 -> 10 -> 99]
+
+    // 删除
+    list.remove(&10);
+    println!('删除 10 后: {}', list); // [5 -> 99]
+
+    // 按索引插入
+    list.insert_at(1, 88);
+    println!('在索引 1 插入 88: {}', list); // [5 -> 88 -> 99]
+
+    // 按索引删除
+    list.remove_at(0);
+    println!('删除索引 0 后: {}', list); // [88 -> 99]
+
+    // 迭代
+    for val in list.iter() {
+        println!('iter: {}', val);
+    }
+}
+```
+# Author :Poss-Rexim
+where can find  me?
+![喵~!以后就是朋友了](ddt1472582022@outlook.com)。">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://poss-studio.github.io/post/%23%202-nian-e-meng-jiu-ci-jie-shu-%20--%20-yong-%5BRust%20Community%20~classic%20100%25%5Dstyle-shi-xian-Rust-lian-biao.html">
 <meta property="og:image" content="https://avatars.githubusercontent.com/u/115876698?v=4">
 <title># 2年噩梦就此结束 -> 用[Rust Community ~classic 100%]style实现Rust链表</title>
-
+<link href="//unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />
 
 
 </head>
@@ -95,7 +1089,6 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 <p>Music:<br>
 </p>
   <source type="audio/mpeg">
-  您的浏览器不支持该音频格式。
 
 ## 本人难度评价
 若用c/c++,python,java实现都很简单,即使是c/c++手动释放可控的堆内存也行(C++智能指针yyds) -&gt; c++11引入
@@ -104,480 +1097,493 @@ Java和pyhon自带gc功能而且在现在能胜任很大的数据流冲击,gc间
 用Rust难度会指数上升,Rust是偏函数式编程的,很多时候是像Haskell那样晦涩难懂的,我本人是命令行式编程和面向对象之后学的函数式编程喵～！可爱捏
 Rust里的所有权,迭代器,引用与借用,错误处理,泛型，生命周期，组织源码test等让人烦恼,但是在我的不断练习和磨练，复习函数式编程成功实现了喵～！
 ## 项目地址:![可爱喵,欢迎参考](https://github.com/Poss-Studio/Rust_LinkList/blob/main/src/main.rs)
-``` rust
-use std::fmt;
-<p>// ---------- 节点定义 ----------<br>
-struct Node {<br>
-val: T,<br>
-next: Option&lt;Box&lt;Node&gt;&gt;,<br>
-}</p>
-<p>impl Node {<br>
-fn new(val: T) -&gt; Self {<br>
-Node { val, next: None }<br>
-}<br>
-}</p>
-<p>// ---------- 单链表 ----------<br>
-pub struct LinkedList {<br>
-head: Option&lt;Box&lt;Node&gt;&gt;,<br>
-len: usize,<br>
-}</p>
-<p>impl LinkedList {<br>
-/// 创建空链表<br>
-pub fn new() -&gt; Self {<br>
-LinkedList { head: None, len: 0 }<br>
-}</p>
-<pre class="notranslate"><code class="notranslate">/// 返回链表长度
-pub fn len(&amp;self) -&gt; usize {
-    self.len
-}
+<div class="highlight highlight-source-rust"><pre class="notranslate"><span class="pl-k">use</span> std<span class="pl-kos">::</span>fmt<span class="pl-kos">;</span>
 
-/// 判断是否为空
-pub fn is_empty(&amp;self) -&gt; bool {
-    self.len == 0
-}
+<span class="pl-c">// ---------- 节点定义 ----------</span>
+<span class="pl-k">struct</span> <span class="pl-smi">Node</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-c1">val</span><span class="pl-kos">:</span> <span class="pl-smi">T</span><span class="pl-kos">,</span>
+    <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">Box</span><span class="pl-kos">&lt;</span><span class="pl-smi">Node</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span><span class="pl-kos">&gt;</span><span class="pl-kos">&gt;</span><span class="pl-kos">,</span>
+<span class="pl-kos">}</span>
 
-// ---------- 头部操作 ----------
-/// 头部插入
-pub fn push_front(&amp;mut self, val: T) {
-    let new_node = Box::new(Node {
-        val,
-        next: self.head.take(),
-    });
-    self.head = Some(new_node);
-    self.len += 1;
-}
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-smi">Node</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-k">fn</span> <span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-s1">val</span><span class="pl-kos">:</span> <span class="pl-smi">T</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Self</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">Node</span> <span class="pl-kos">{</span> val<span class="pl-kos">,</span> <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-v">None</span> <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
 
-/// 头部弹出
-pub fn pop_front(&amp;mut self) -&gt; Option&lt;T&gt; {
-    self.head.take().map(|node| {
-        self.head = node.next;
-        self.len -= 1;
-        node.val
-    })
-}
+<span class="pl-c">// ---------- 单链表 ----------</span>
+<span class="pl-k">pub</span> <span class="pl-k">struct</span> <span class="pl-smi">LinkedList</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-c1">head</span><span class="pl-kos">:</span> <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">Box</span><span class="pl-kos">&lt;</span><span class="pl-smi">Node</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span><span class="pl-kos">&gt;</span><span class="pl-kos">&gt;</span><span class="pl-kos">,</span>
+    <span class="pl-c1">len</span><span class="pl-kos">:</span> <span class="pl-smi">usize</span><span class="pl-kos">,</span>
+<span class="pl-kos">}</span>
 
-/// 查看头部元素（不可变）
-pub fn peek_front(&amp;self) -&gt; Option&lt;&amp;T&gt; {
-    self.head.as_ref().map(|node| &amp;node.val)
-}
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-smi">LinkedList</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-c">/// 创建空链表</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Self</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">LinkedList</span> <span class="pl-kos">{</span> <span class="pl-c1">head</span><span class="pl-kos">:</span> <span class="pl-v">None</span><span class="pl-kos">,</span> <span class="pl-c1">len</span><span class="pl-kos">:</span> <span class="pl-c1">0</span> <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
 
-/// 查看头部元素（可变）
-pub fn peek_front_mut(&amp;mut self) -&gt; Option&lt;&amp;mut T&gt; {
-    self.head.as_mut().map(|node| &amp;mut node.val)
-}
+    <span class="pl-c">/// 返回链表长度</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">len</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">usize</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span>
+    <span class="pl-kos">}</span>
 
-// ---------- 尾部操作 ----------
-/// 尾部插入
-pub fn push_back(&amp;mut self, val: T) {
-    let new_node = Box::new(Node { val, next: None });
+    <span class="pl-c">/// 判断是否为空</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">is_empty</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">bool</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> == <span class="pl-c1">0</span>
+    <span class="pl-kos">}</span>
 
-    if self.head.is_none() {
-        self.head = Some(new_node);
-    } else {
-        let mut cur = self.head.as_mut().unwrap();
-        while let Some(ref mut next) = cur.next {
-            cur = next;
-        }
-        cur.next = Some(new_node);
-    }
-    self.len += 1;
-}
+    <span class="pl-c">// ---------- 头部操作 ----------</span>
+    <span class="pl-c">/// 头部插入</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">push_front</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">val</span><span class="pl-kos">:</span> <span class="pl-smi">T</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> new_node = <span class="pl-smi">Box</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-smi">Node</span> <span class="pl-kos">{</span>
+            val<span class="pl-kos">,</span>
+            <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
+        <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span> = <span class="pl-en">Some</span><span class="pl-kos">(</span>new_node<span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> += <span class="pl-c1">1</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
 
-/// 尾部弹出
-pub fn pop_back(&amp;mut self) -&gt; Option&lt;T&gt; {
-    if self.head.is_none() {
-        return None;
-    }
-    // 只有一个节点
-    if self.head.as_ref().unwrap().next.is_none() {
-        return self.pop_front();
-    }
+    <span class="pl-c">/// 头部弹出</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">pop_front</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|node| <span class="pl-kos">{</span>
+            <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span> = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">;</span>
+            <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> -= <span class="pl-c1">1</span><span class="pl-kos">;</span>
+            node<span class="pl-kos">.</span><span class="pl-c1">val</span>
+        <span class="pl-kos">}</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
 
-    let mut cur = self.head.as_mut().unwrap();
-    while let Some(next) = cur.next.as_mut() {
-        if next.next.is_none() {
-            // 取出尾节点
-            let tail = cur.next.take();
-            self.len -= 1;
-            return tail.map(|boxed| boxed.val);
-        }
-        cur = cur.next.as_mut().unwrap();
-    }
-    None
-}
+    <span class="pl-c">/// 查看头部元素（不可变）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">peek_front</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|node| <span class="pl-c1">&amp;</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
 
-/// 查看尾部元素（不可变）
-pub fn peek_back(&amp;self) -&gt; Option&lt;&amp;T&gt; {
-    let mut cur = self.head.as_ref();
-    while let Some(node) = cur {
-        if node.next.is_none() {
-            return Some(&amp;node.val);
-        }
-        cur = node.next.as_ref();
-    }
-    None
-}
+    <span class="pl-c">/// 查看头部元素（可变）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">peek_front_mut</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|node| <span class="pl-c1">&amp;</span><span class="pl-k">mut</span> node<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
 
-/// 查看尾部元素（可变）
-pub fn peek_back_mut(&amp;mut self) -&gt; Option&lt;&amp;mut T&gt; {
-    let mut cur = self.head.as_mut();
-    while let Some(node) = cur {
-        if node.next.is_none() {
-            return Some(&amp;mut node.val);
-        }
-        cur = node.next.as_mut();
-    }
-    None
-}
+    <span class="pl-c">// ---------- 尾部操作 ----------</span>
+    <span class="pl-c">/// 尾部插入</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">val</span><span class="pl-kos">:</span> <span class="pl-smi">T</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> new_node = <span class="pl-smi">Box</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-smi">Node</span> <span class="pl-kos">{</span> val<span class="pl-kos">,</span> <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-v">None</span> <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
 
-// ---------- 按值查找、删除、更新 ----------
-/// 查找值是否存在（需要 T: PartialEq）
-pub fn contains(&amp;self, val: &amp;T) -&gt; bool
-where
-    T: PartialEq,
-{
-    let mut cur = self.head.as_ref();
-    while let Some(node) = cur {
-        if &amp;node.val == val {
-            return true;
-        }
-        cur = node.next.as_ref();
-    }
-    false
-}
+        <span class="pl-k">if</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">is_none</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span> = <span class="pl-en">Some</span><span class="pl-kos">(</span>new_node<span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
+            <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">unwrap</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-k">ref</span> <span class="pl-k">mut</span> next<span class="pl-kos">)</span> = cur<span class="pl-kos">.</span><span class="pl-c1">next</span> <span class="pl-kos">{</span>
+                cur = next<span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            cur<span class="pl-kos">.</span><span class="pl-c1">next</span> = <span class="pl-en">Some</span><span class="pl-kos">(</span>new_node<span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> += <span class="pl-c1">1</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
 
-/// 删除第一个匹配的值（需要 T: PartialEq）
-pub fn remove(&amp;mut self, val: &amp;T) -&gt; bool
-where
-    T: PartialEq,
-{
-    // 处理头节点
-    if let Some(node) = self.head.as_mut() {
-        if &amp;node.val == val {
-            self.head = node.next.take();
-            self.len -= 1;
-            return true;
-        }
-    }
+    <span class="pl-c">/// 尾部弹出</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">pop_back</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">is_none</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">return</span> <span class="pl-v">None</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-c">// 只有一个节点</span>
+        <span class="pl-k">if</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">unwrap</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">is_none</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">return</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-en">pop_front</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
 
-    let mut cur = self.head.as_mut();
-    while let Some(node) = cur {
-        if let Some(ref mut next_node) = node.next {
-            if &amp;next_node.val == val {
-                node.next = next_node.next.take();
-                self.len -= 1;
-                return true;
-            }
-        }
-        cur = node.next.as_mut();
-    }
-    false
-}
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">unwrap</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>next<span class="pl-kos">)</span> = cur<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> next<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">is_none</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                <span class="pl-c">// 取出尾节点</span>
+                <span class="pl-k">let</span> tail = cur<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+                <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> -= <span class="pl-c1">1</span><span class="pl-kos">;</span>
+                <span class="pl-k">return</span> tail<span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|boxed| boxed<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            cur = cur<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">unwrap</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-v">None</span>
+    <span class="pl-kos">}</span>
 
-/// 更新第一个匹配的值（需要 T: PartialEq）
-pub fn update(&amp;mut self, old_val: &amp;T, new_val: T) -&gt; bool
-where
-    T: PartialEq,
-{
-    let mut cur = self.head.as_mut();
-    while let Some(node) = cur {
-        if &amp;node.val == old_val {
-            node.val = new_val;
-            return true;
-        }
-        cur = node.next.as_mut();
-    }
-    false
-}
+    <span class="pl-c">/// 查看尾部元素（不可变）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">peek_back</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">is_none</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                <span class="pl-k">return</span> <span class="pl-en">Some</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            cur = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-v">None</span>
+    <span class="pl-kos">}</span>
 
-// ---------- 按索引操作 ----------
-/// 按索引获取元素（不可变）
-pub fn get(&amp;self, index: usize) -&gt; Option&lt;&amp;T&gt; {
-    if index &gt;= self.len {
-        return None;
-    }
-    let mut cur = self.head.as_ref();
-    for _ in 0..index {
-        cur = cur?.next.as_ref();
-    }
-    cur.map(|node| &amp;node.val)
-}
+    <span class="pl-c">/// 查看尾部元素（可变）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">peek_back_mut</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">is_none</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                <span class="pl-k">return</span> <span class="pl-en">Some</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> node<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            cur = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-v">None</span>
+    <span class="pl-kos">}</span>
 
-/// 按索引获取元素（可变）
-pub fn get_mut(&amp;mut self, index: usize) -&gt; Option&lt;&amp;mut T&gt; {
-    if index &gt;= self.len {
-        return None;
-    }
-    let mut cur = self.head.as_mut();
-    for _ in 0..index {
-        cur = cur?.next.as_mut();
-    }
-    cur.map(|node| &amp;mut node.val)
-}
+    <span class="pl-c">// ---------- 按值查找、删除、更新 ----------</span>
+    <span class="pl-c">/// 查找值是否存在（需要 T: PartialEq）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">contains</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">val</span><span class="pl-kos">:</span> <span class="pl-c1">&amp;</span><span class="pl-smi">T</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">bool</span>
+    <span class="pl-k">where</span>
+        <span class="pl-smi">T</span><span class="pl-kos">:</span> <span class="pl-smi">PartialEq</span><span class="pl-kos">,</span>
+    <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> <span class="pl-c1">&amp;</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span> == val <span class="pl-kos">{</span>
+                <span class="pl-k">return</span> <span class="pl-c1">true</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            cur = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-c1">false</span>
+    <span class="pl-kos">}</span>
 
-/// 在指定索引插入（0 为头部，len 为尾部）
-pub fn insert_at(&amp;mut self, index: usize, val: T) -&gt; bool {
-    if index &gt; self.len {
-        return false;
-    }
-    if index == 0 {
-        self.push_front(val);
-        return true;
-    }
+    <span class="pl-c">/// 删除第一个匹配的值（需要 T: PartialEq）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">remove</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">val</span><span class="pl-kos">:</span> <span class="pl-c1">&amp;</span><span class="pl-smi">T</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">bool</span>
+    <span class="pl-k">where</span>
+        <span class="pl-smi">T</span><span class="pl-kos">:</span> <span class="pl-smi">PartialEq</span><span class="pl-kos">,</span>
+    <span class="pl-kos">{</span>
+        <span class="pl-c">// 处理头节点</span>
+        <span class="pl-k">if</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">)</span> = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> <span class="pl-c1">&amp;</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span> == val <span class="pl-kos">{</span>
+                <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span> = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+                <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> -= <span class="pl-c1">1</span><span class="pl-kos">;</span>
+                <span class="pl-k">return</span> <span class="pl-c1">true</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+        <span class="pl-kos">}</span>
 
-    let mut cur = self.head.as_mut();
-    for _ in 0..(index - 1) {
-        match cur {
-            Some(node) =&gt; cur = node.next.as_mut(),
-            None =&gt; return false, // 不会发生
-        }
-    }
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-k">ref</span> <span class="pl-k">mut</span> next_node<span class="pl-kos">)</span> = node<span class="pl-kos">.</span><span class="pl-c1">next</span> <span class="pl-kos">{</span>
+                <span class="pl-k">if</span> <span class="pl-c1">&amp;</span>next_node<span class="pl-kos">.</span><span class="pl-c1">val</span> == val <span class="pl-kos">{</span>
+                    node<span class="pl-kos">.</span><span class="pl-c1">next</span> = next_node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+                    <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> -= <span class="pl-c1">1</span><span class="pl-kos">;</span>
+                    <span class="pl-k">return</span> <span class="pl-c1">true</span><span class="pl-kos">;</span>
+                <span class="pl-kos">}</span>
+            <span class="pl-kos">}</span>
+            cur = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-c1">false</span>
+    <span class="pl-kos">}</span>
 
-    if let Some(prev) = cur {
-        let new_node = Box::new(Node {
-            val,
-            next: prev.next.take(),
-        });
-        prev.next = Some(new_node);
-        self.len += 1;
-        true
-    } else {
-        false
-    }
-}
+    <span class="pl-c">/// 更新第一个匹配的值（需要 T: PartialEq）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">update</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">old_val</span><span class="pl-kos">:</span> <span class="pl-c1">&amp;</span><span class="pl-smi">T</span><span class="pl-kos">,</span> <span class="pl-s1">new_val</span><span class="pl-kos">:</span> <span class="pl-smi">T</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">bool</span>
+    <span class="pl-k">where</span>
+        <span class="pl-smi">T</span><span class="pl-kos">:</span> <span class="pl-smi">PartialEq</span><span class="pl-kos">,</span>
+    <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> <span class="pl-c1">&amp;</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span> == old_val <span class="pl-kos">{</span>
+                node<span class="pl-kos">.</span><span class="pl-c1">val</span> = new_val<span class="pl-kos">;</span>
+                <span class="pl-k">return</span> <span class="pl-c1">true</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+            cur = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-c1">false</span>
+    <span class="pl-kos">}</span>
 
-/// 按索引删除，返回被删除的值
-pub fn remove_at(&amp;mut self, index: usize) -&gt; Option&lt;T&gt; {
-    if index &gt;= self.len {
-        return None;
-    }
-    if index == 0 {
-        return self.pop_front();
-    }
+    <span class="pl-c">// ---------- 按索引操作 ----------</span>
+    <span class="pl-c">/// 按索引获取元素（不可变）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">get</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">index</span><span class="pl-kos">:</span> <span class="pl-smi">usize</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> index &gt;= <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> <span class="pl-kos">{</span>
+            <span class="pl-k">return</span> <span class="pl-v">None</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">for</span> _ <span class="pl-k">in</span> <span class="pl-c1">0</span>..index <span class="pl-kos">{</span>
+            cur = cur?<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_ref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        cur<span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|node| <span class="pl-c1">&amp;</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
 
-    let mut cur = self.head.as_mut();
-    for _ in 0..(index - 1) {
-        cur = cur?.next.as_mut();
-    }
+    <span class="pl-c">/// 按索引获取元素（可变）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">get_mut</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">index</span><span class="pl-kos">:</span> <span class="pl-smi">usize</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> index &gt;= <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> <span class="pl-kos">{</span>
+            <span class="pl-k">return</span> <span class="pl-v">None</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">for</span> _ <span class="pl-k">in</span> <span class="pl-c1">0</span>..index <span class="pl-kos">{</span>
+            cur = cur?<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        cur<span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|node| <span class="pl-c1">&amp;</span><span class="pl-k">mut</span> node<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
 
-    if let Some(prev) = cur {
-        if let Some(mut node) = prev.next.take() {
-            prev.next = node.next.take();
-            self.len -= 1;
-            return Some(node.val);
-        }
-    }
-    None
-}
+    <span class="pl-c">/// 在指定索引插入（0 为头部，len 为尾部）</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">insert_at</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">index</span><span class="pl-kos">:</span> <span class="pl-smi">usize</span><span class="pl-kos">,</span> <span class="pl-s1">val</span><span class="pl-kos">:</span> <span class="pl-smi">T</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">bool</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> index &gt; <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> <span class="pl-kos">{</span>
+            <span class="pl-k">return</span> <span class="pl-c1">false</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">if</span> index == <span class="pl-c1">0</span> <span class="pl-kos">{</span>
+            <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-en">push_front</span><span class="pl-kos">(</span>val<span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-k">return</span> <span class="pl-c1">true</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
 
-// ---------- 迭代器 ----------
-pub fn iter(&amp;self) -&gt; Iter&lt;T&gt; {
-    Iter {
-        next: self.head.as_deref(),
-    }
-}
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">for</span> _ <span class="pl-k">in</span> <span class="pl-c1">0</span>..<span class="pl-kos">(</span>index - <span class="pl-c1">1</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            <span class="pl-k">match</span> cur <span class="pl-kos">{</span>
+                <span class="pl-v">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">)</span> =&gt; cur = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
+                <span class="pl-v">None</span> =&gt; <span class="pl-k">return</span> <span class="pl-c1">false</span><span class="pl-kos">,</span> <span class="pl-c">// 不会发生</span>
+            <span class="pl-kos">}</span>
+        <span class="pl-kos">}</span>
 
-pub fn iter_mut(&amp;mut self) -&gt; IterMut&lt;T&gt; {
-    IterMut {
-        next: self.head.as_deref_mut(),
-    }
-}
-</code></pre>
-<p>}</p>
-<p>// ---------- 不可变迭代器 ----------<br>
-pub struct Iter&lt;'a, T&gt; {<br>
-next: Option&lt;&amp;'a Node&gt;,<br>
-}</p>
-<p>impl&lt;'a, T&gt; Iterator for Iter&lt;'a, T&gt; {<br>
-type Item = &amp;'a T;</p>
-<pre class="notranslate"><code class="notranslate">fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; {
-    self.next.map(|node| {
-        self.next = node.next.as_deref();
-        &amp;node.val
-    })
-}
-</code></pre>
-<p>}</p>
-<p>// ---------- 可变迭代器 ----------<br>
-pub struct IterMut&lt;'a, T&gt; {<br>
-next: Option&lt;&amp;'a mut Node&gt;,<br>
-}</p>
-<p>impl&lt;'a, T&gt; Iterator for IterMut&lt;'a, T&gt; {<br>
-type Item = &amp;'a mut T;</p>
-<pre class="notranslate"><code class="notranslate">fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; {
-    self.next.take().map(|node| {
-        self.next = node.next.as_deref_mut();
-        &amp;mut node.val
-    })
-}
-</code></pre>
-<p>}</p>
-<p>// ---------- 所有权迭代器 ----------<br>
-impl IntoIterator for LinkedList {<br>
-type Item = T;<br>
-type IntoIter = IntoIter;</p>
-<pre class="notranslate"><code class="notranslate">fn into_iter(self) -&gt; Self::IntoIter {
-    IntoIter { list: self }
-}
-</code></pre>
-<p>}</p>
-<p>pub struct IntoIter {<br>
-list: LinkedList,<br>
-}</p>
-<p>impl Iterator for IntoIter {<br>
-type Item = T;</p>
-<pre class="notranslate"><code class="notranslate">fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt; {
-    self.list.pop_front()
-}
-</code></pre>
-<p>}</p>
-<p>// ---------- 实现 Display ----------<br>
-impl&lt;T: fmt::Display&gt; fmt::Display for LinkedList {<br>
-fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {<br>
-let mut parts = Vec::new();<br>
-for val in self.iter() {<br>
-parts.push(format!("{}", val));<br>
-}<br>
-write!(f, "[{}]", parts.join(" -&gt; "))<br>
-}<br>
-}</p>
-<p>// ---------- Drop：手动实现防止长链表栈溢出 ----------<br>
-impl Drop for LinkedList {<br>
-fn drop(&amp;mut self) {<br>
-let mut cur = self.head.take();<br>
-while let Some(mut node) = cur {<br>
-cur = node.next.take();<br>
-}<br>
-}<br>
-}</p>
-<p>// ---------- 测试 ----------<br>
-#[cfg(test)]<br>
-mod tests {<br>
-use super::*;</p>
-<pre class="notranslate"><code class="notranslate">#[test]
-fn test_push_pop_front() {
-    let mut list = LinkedList::new();
-    list.push_front(1);
-    list.push_front(2);
-    assert_eq!(list.pop_front(), Some(2));
-    assert_eq!(list.pop_front(), Some(1));
-    assert_eq!(list.pop_front(), None);
-}
+        <span class="pl-k">if</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>prev<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            <span class="pl-k">let</span> new_node = <span class="pl-smi">Box</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-smi">Node</span> <span class="pl-kos">{</span>
+                val<span class="pl-kos">,</span>
+                <span class="pl-c1">next</span><span class="pl-kos">:</span> prev<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
+            <span class="pl-kos">}</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            prev<span class="pl-kos">.</span><span class="pl-c1">next</span> = <span class="pl-en">Some</span><span class="pl-kos">(</span>new_node<span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> += <span class="pl-c1">1</span><span class="pl-kos">;</span>
+            <span class="pl-c1">true</span>
+        <span class="pl-kos">}</span> <span class="pl-k">else</span> <span class="pl-kos">{</span>
+            <span class="pl-c1">false</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
 
-#[test]
-fn test_push_pop_back() {
-    let mut list = LinkedList::new();
-    list.push_back(1);
-    list.push_back(2);
-    list.push_back(3);
-    assert_eq!(list.pop_back(), Some(3));
-    assert_eq!(list.pop_back(), Some(2));
-    assert_eq!(list.pop_back(), Some(1));
-    assert_eq!(list.pop_back(), None);
-}
+    <span class="pl-c">/// 按索引删除，返回被删除的值</span>
+<span class="pl-c"></span>    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">remove_at</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">index</span><span class="pl-kos">:</span> <span class="pl-smi">usize</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-k">if</span> index &gt;= <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> <span class="pl-kos">{</span>
+            <span class="pl-k">return</span> <span class="pl-v">None</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-k">if</span> index == <span class="pl-c1">0</span> <span class="pl-kos">{</span>
+            <span class="pl-k">return</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-en">pop_front</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
 
-#[test]
-fn test_remove() {
-    let mut list = LinkedList::new();
-    list.push_back(1);
-    list.push_back(2);
-    list.push_back(3);
-    assert!(list.remove(&amp;2));
-    assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;1, &amp;3]);
-    assert!(!list.remove(&amp;4));
-}
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">for</span> _ <span class="pl-k">in</span> <span class="pl-c1">0</span>..<span class="pl-kos">(</span>index - <span class="pl-c1">1</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            cur = cur?<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
 
-#[test]
-fn test_update() {
-    let mut list = LinkedList::new();
-    list.push_back(1);
-    list.push_back(2);
-    list.update(&amp;2, 99);
-    assert_eq!(list.get(1), Some(&amp;99));
-}
+        <span class="pl-k">if</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span>prev<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            <span class="pl-k">if</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-k">mut</span> node<span class="pl-kos">)</span> = prev<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+                prev<span class="pl-kos">.</span><span class="pl-c1">next</span> = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+                <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">len</span> -= <span class="pl-c1">1</span><span class="pl-kos">;</span>
+                <span class="pl-k">return</span> <span class="pl-en">Some</span><span class="pl-kos">(</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-kos">}</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-v">None</span>
+    <span class="pl-kos">}</span>
 
-#[test]
-fn test_insert_at() {
-    let mut list = LinkedList::new();
-    list.push_back(1);
-    list.push_back(3);
-    list.insert_at(1, 2);
-    assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;1, &amp;2, &amp;3]);
-    list.insert_at(0, 0);
-    assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;0, &amp;1, &amp;2, &amp;3]);
-    list.insert_at(4, 4);
-    assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;0, &amp;1, &amp;2, &amp;3, &amp;4]);
-}
+    <span class="pl-c">// ---------- 迭代器 ----------</span>
+    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">iter</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Iter</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">Iter</span> <span class="pl-kos">{</span>
+            <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_deref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
 
-#[test]
-fn test_remove_at() {
-    let mut list = LinkedList::new();
-    list.push_back(1);
-    list.push_back(2);
-    list.push_back(3);
-    assert_eq!(list.remove_at(1), Some(2));
-    assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;1, &amp;3]);
-    assert_eq!(list.remove_at(0), Some(1));
-    assert_eq!(list.iter().collect::&lt;Vec&lt;_&gt;&gt;(), vec![&amp;3]);
-    assert_eq!(list.remove_at(0), Some(3));
-    assert!(list.is_empty());
-}
+    <span class="pl-k">pub</span> <span class="pl-k">fn</span> <span class="pl-en">iter_mut</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">IterMut</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">IterMut</span> <span class="pl-kos">{</span>
+            <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">as_deref_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
 
-#[test]
-fn test_peek() {
-    let mut list = LinkedList::new();
-    list.push_back(1);
-    list.push_back(2);
-    assert_eq!(list.peek_front(), Some(&amp;1));
-    assert_eq!(list.peek_back(), Some(&amp;2));
-    *list.peek_front_mut().unwrap() = 9;
-    assert_eq!(list.peek_front(), Some(&amp;9));
-}
+<span class="pl-c">// ---------- 不可变迭代器 ----------</span>
+<span class="pl-k">pub</span> <span class="pl-k">struct</span> <span class="pl-smi">Iter</span><span class="pl-kos">&lt;</span><span class="pl-c1">'</span><span class="pl-ent">a</span><span class="pl-kos">,</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-c1">'</span><span class="pl-ent">a</span> <span class="pl-smi">Node</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span><span class="pl-kos">&gt;</span><span class="pl-kos">,</span>
+<span class="pl-kos">}</span>
 
-#[test]
-fn test_into_iter() {
-    let mut list = LinkedList::new();
-    list.push_back(1);
-    list.push_back(2);
-    let collected: Vec&lt;i32&gt; = list.into_iter().collect();
-    assert_eq!(collected, vec![1, 2]);
-}
-</code></pre>
-<p>}</p>
-<p>fn main() {<br>
-let mut list = LinkedList::new();</p>
-<pre class="notranslate"><code class="notranslate">// 插入
-list.push_back(10);
-list.push_back(20);
-list.push_front(5);
-println!("链表: {}", list); // [5 -&gt; 10 -&gt; 20]
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-c1">'</span><span class="pl-ent">a</span><span class="pl-kos">,</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-smi">Iterator</span> <span class="pl-k">for</span> <span class="pl-smi">Iter</span><span class="pl-kos">&lt;</span><span class="pl-c1">'</span><span class="pl-ent">a</span><span class="pl-kos">,</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-k">type</span> <span class="pl-smi">Item</span> = <span class="pl-c1">&amp;</span><span class="pl-c1">'</span><span class="pl-ent">a</span> <span class="pl-smi">T</span><span class="pl-kos">;</span>
 
-// 更新
-list.update(&amp;20, 99);
-println!("更新 20 -&gt; 99 后: {}", list); // [5 -&gt; 10 -&gt; 99]
+    <span class="pl-k">fn</span> <span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">Self</span><span class="pl-kos">::</span><span class="pl-smi">Item</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|node| <span class="pl-kos">{</span>
+            <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">next</span> = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_deref</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-c1">&amp;</span>node<span class="pl-kos">.</span><span class="pl-c1">val</span>
+        <span class="pl-kos">}</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
 
-// 删除
-list.remove(&amp;10);
-println!("删除 10 后: {}", list); // [5 -&gt; 99]
+<span class="pl-c">// ---------- 可变迭代器 ----------</span>
+<span class="pl-k">pub</span> <span class="pl-k">struct</span> <span class="pl-smi">IterMut</span><span class="pl-kos">&lt;</span><span class="pl-c1">'</span><span class="pl-ent">a</span><span class="pl-kos">,</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-c1">next</span><span class="pl-kos">:</span> <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-c1">&amp;</span><span class="pl-c1">'</span><span class="pl-ent">a</span> <span class="pl-k">mut</span> <span class="pl-smi">Node</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span><span class="pl-kos">&gt;</span><span class="pl-kos">,</span>
+<span class="pl-kos">}</span>
 
-// 按索引插入
-list.insert_at(1, 88);
-println!("在索引 1 插入 88: {}", list); // [5 -&gt; 88 -&gt; 99]
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-c1">'</span><span class="pl-ent">a</span><span class="pl-kos">,</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-smi">Iterator</span> <span class="pl-k">for</span> <span class="pl-smi">IterMut</span><span class="pl-kos">&lt;</span><span class="pl-c1">'</span><span class="pl-ent">a</span><span class="pl-kos">,</span> <span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-k">type</span> <span class="pl-smi">Item</span> = <span class="pl-c1">&amp;</span><span class="pl-c1">'</span><span class="pl-ent">a</span> <span class="pl-k">mut</span> <span class="pl-smi">T</span><span class="pl-kos">;</span>
 
-// 按索引删除
-list.remove_at(0);
-println!("删除索引 0 后: {}", list); // [88 -&gt; 99]
+    <span class="pl-k">fn</span> <span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">Self</span><span class="pl-kos">::</span><span class="pl-smi">Item</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">map</span><span class="pl-kos">(</span>|node| <span class="pl-kos">{</span>
+            <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">next</span> = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">as_deref_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+            <span class="pl-c1">&amp;</span><span class="pl-k">mut</span> node<span class="pl-kos">.</span><span class="pl-c1">val</span>
+        <span class="pl-kos">}</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
 
-// 迭代
-for val in list.iter() {
-    println!("iter: {}", val);
-}
-</code></pre>
-<p>}</p>
-<pre class="notranslate"><code class="notranslate"># Author :Poss-Rexim
-where can find  me?
-![喵~!以后就是朋友了](ddt1472582022@outlook.com)
-</code></pre></div>
+<span class="pl-c">// ---------- 所有权迭代器 ----------</span>
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-smi">IntoIterator</span> <span class="pl-k">for</span> <span class="pl-smi">LinkedList</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-k">type</span> <span class="pl-smi">Item</span> = <span class="pl-smi">T</span><span class="pl-kos">;</span>
+    <span class="pl-k">type</span> <span class="pl-smi">IntoIter</span> = <span class="pl-smi">IntoIter</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span><span class="pl-kos">;</span>
+
+    <span class="pl-k">fn</span> <span class="pl-en">into_iter</span><span class="pl-kos">(</span><span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Self</span><span class="pl-kos">::</span><span class="pl-smi">IntoIter</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">IntoIter</span> <span class="pl-kos">{</span> <span class="pl-c1">list</span><span class="pl-kos">:</span> <span class="pl-smi">self</span> <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
+
+<span class="pl-k">pub</span> <span class="pl-k">struct</span> <span class="pl-smi">IntoIter</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-c1">list</span><span class="pl-kos">:</span> <span class="pl-smi">LinkedList</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span><span class="pl-kos">,</span>
+<span class="pl-kos">}</span>
+
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-smi">Iterator</span> <span class="pl-k">for</span> <span class="pl-smi">IntoIter</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-k">type</span> <span class="pl-smi">Item</span> = <span class="pl-smi">T</span><span class="pl-kos">;</span>
+
+    <span class="pl-k">fn</span> <span class="pl-en">next</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> -&gt; <span class="pl-smi">Option</span><span class="pl-kos">&lt;</span><span class="pl-smi">Self</span><span class="pl-kos">::</span><span class="pl-smi">Item</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+        <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">list</span><span class="pl-kos">.</span><span class="pl-en">pop_front</span><span class="pl-kos">(</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
+
+<span class="pl-c">// ---------- 实现 Display ----------</span>
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">:</span> fmt<span class="pl-kos">::</span><span class="pl-smi">Display</span><span class="pl-kos">&gt;</span> fmt<span class="pl-kos">::</span><span class="pl-smi">Display</span> <span class="pl-k">for</span> <span class="pl-smi">LinkedList</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-k">fn</span> <span class="pl-en">fmt</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-smi">self</span><span class="pl-kos">,</span> <span class="pl-s1">f</span><span class="pl-kos">:</span> <span class="pl-c1">&amp;</span><span class="pl-k">mut</span> fmt<span class="pl-kos">::</span><span class="pl-smi">Formatter</span><span class="pl-kos">&lt;</span><span class="pl-c1">'</span><span class="pl-ent">_</span><span class="pl-kos">&gt;</span><span class="pl-kos">)</span> -&gt; fmt<span class="pl-kos">::</span><span class="pl-smi">Result</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> parts = <span class="pl-smi">Vec</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">for</span> val <span class="pl-k">in</span> <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-en">iter</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+            parts<span class="pl-kos">.</span><span class="pl-en">push</span><span class="pl-kos">(</span><span class="pl-en">format</span><span class="pl-en">!</span><span class="pl-kos">(</span><span class="pl-s">"{}"</span><span class="pl-kos">,</span> val<span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+        <span class="pl-en">write</span><span class="pl-en">!</span><span class="pl-kos">(</span>f<span class="pl-kos">,</span> <span class="pl-s">"[{}]"</span><span class="pl-kos">,</span> parts<span class="pl-kos">.</span>join<span class="pl-kos">(</span><span class="pl-s">" -&gt; "</span><span class="pl-kos">)</span><span class="pl-kos">)</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
+
+<span class="pl-c">// ---------- Drop：手动实现防止长链表栈溢出 ----------</span>
+<span class="pl-k">impl</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-smi">Drop</span> <span class="pl-k">for</span> <span class="pl-smi">LinkedList</span><span class="pl-kos">&lt;</span><span class="pl-smi">T</span><span class="pl-kos">&gt;</span> <span class="pl-kos">{</span>
+    <span class="pl-k">fn</span> <span class="pl-en">drop</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-k">mut</span> <span class="pl-smi">self</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> cur = <span class="pl-smi">self</span><span class="pl-kos">.</span><span class="pl-c1">head</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">while</span> <span class="pl-k">let</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-k">mut</span> node<span class="pl-kos">)</span> = cur <span class="pl-kos">{</span>
+            cur = node<span class="pl-kos">.</span><span class="pl-c1">next</span><span class="pl-kos">.</span><span class="pl-en">take</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-kos">}</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
+
+<span class="pl-c">// ---------- 测试 ----------</span>
+<span class="pl-c1">#<span class="pl-kos">[</span>cfg<span class="pl-kos">(</span>test<span class="pl-kos">)</span><span class="pl-kos">]</span></span>
+<span class="pl-k">mod</span> tests <span class="pl-kos">{</span>
+    <span class="pl-k">use</span> <span class="pl-k">super</span><span class="pl-kos">::</span><span class="pl-c1">*</span><span class="pl-kos">;</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_push_pop_front</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_front</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_front</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>pop_front<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>pop_front<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>pop_front<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">None</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_push_pop_back</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>pop_back<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>pop_back<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>pop_back<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>pop_back<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">None</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_remove</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>remove<span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>iter<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span>collect<span class="pl-kos">::</span>&lt;<span class="pl-v">Vec</span>&lt;_&gt;&gt;<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> vec!<span class="pl-kos">[</span><span class="pl-c1">&amp;</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">3</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert</span><span class="pl-en">!</span><span class="pl-kos">(</span>!list<span class="pl-kos">.</span>remove<span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">4</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_update</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">update</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">99</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>get<span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">99</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_insert_at</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">insert_at</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>iter<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span>collect<span class="pl-kos">::</span>&lt;<span class="pl-v">Vec</span>&lt;_&gt;&gt;<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> vec!<span class="pl-kos">[</span><span class="pl-c1">&amp;</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">3</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">insert_at</span><span class="pl-kos">(</span><span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>iter<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span>collect<span class="pl-kos">::</span>&lt;<span class="pl-v">Vec</span>&lt;_&gt;&gt;<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> vec!<span class="pl-kos">[</span><span class="pl-c1">&amp;</span><span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">3</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">insert_at</span><span class="pl-kos">(</span><span class="pl-c1">4</span><span class="pl-kos">,</span> <span class="pl-c1">4</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>iter<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span>collect<span class="pl-kos">::</span>&lt;<span class="pl-v">Vec</span>&lt;_&gt;&gt;<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> vec!<span class="pl-kos">[</span><span class="pl-c1">&amp;</span><span class="pl-c1">0</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">2</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">3</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">4</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_remove_at</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>remove_at<span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>iter<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span>collect<span class="pl-kos">::</span>&lt;<span class="pl-v">Vec</span>&lt;_&gt;&gt;<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> vec!<span class="pl-kos">[</span><span class="pl-c1">&amp;</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">&amp;</span><span class="pl-c1">3</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>remove_at<span class="pl-kos">(</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>iter<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span>collect<span class="pl-kos">::</span>&lt;<span class="pl-v">Vec</span>&lt;_&gt;&gt;<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> vec!<span class="pl-kos">[</span><span class="pl-c1">&amp;</span><span class="pl-c1">3</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>remove_at<span class="pl-kos">(</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">3</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>is_empty<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_peek</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>peek_front<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>peek_back<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-c1">*</span>list<span class="pl-kos">.</span><span class="pl-en">peek_front_mut</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">unwrap</span><span class="pl-kos">(</span><span class="pl-kos">)</span> = <span class="pl-c1">9</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>list<span class="pl-kos">.</span>peek_front<span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">,</span> <span class="pl-v">Some</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">9</span><span class="pl-kos">)</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+
+    <span class="pl-c1">#<span class="pl-kos">[</span>test<span class="pl-kos">]</span></span>
+    <span class="pl-k">fn</span> <span class="pl-en">test_into_iter</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">2</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-k">let</span> collected<span class="pl-kos">:</span> <span class="pl-smi">Vec</span><span class="pl-kos">&lt;</span><span class="pl-smi">i32</span><span class="pl-kos">&gt;</span> = list<span class="pl-kos">.</span><span class="pl-en">into_iter</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">.</span><span class="pl-en">collect</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+        <span class="pl-en">assert_eq</span><span class="pl-en">!</span><span class="pl-kos">(</span>collected<span class="pl-kos">,</span> vec!<span class="pl-kos">[</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">2</span><span class="pl-kos">]</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span>
+
+<span class="pl-k">fn</span> <span class="pl-en">main</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+    <span class="pl-k">let</span> <span class="pl-k">mut</span> list = <span class="pl-smi">LinkedList</span><span class="pl-kos">::</span><span class="pl-en">new</span><span class="pl-kos">(</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+
+    <span class="pl-c">// 插入</span>
+    list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">10</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    list<span class="pl-kos">.</span><span class="pl-en">push_back</span><span class="pl-kos">(</span><span class="pl-c1">20</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    list<span class="pl-kos">.</span><span class="pl-en">push_front</span><span class="pl-kos">(</span><span class="pl-c1">5</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">println</span><span class="pl-en">!</span><span class="pl-kos">(</span><span class="pl-s">"链表: {}"</span><span class="pl-kos">,</span> list<span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// [5 -&gt; 10 -&gt; 20]</span>
+
+    <span class="pl-c">// 更新</span>
+    list<span class="pl-kos">.</span><span class="pl-en">update</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">20</span><span class="pl-kos">,</span> <span class="pl-c1">99</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">println</span><span class="pl-en">!</span><span class="pl-kos">(</span><span class="pl-s">"更新 20 -&gt; 99 后: {}"</span><span class="pl-kos">,</span> list<span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// [5 -&gt; 10 -&gt; 99]</span>
+
+    <span class="pl-c">// 删除</span>
+    list<span class="pl-kos">.</span><span class="pl-en">remove</span><span class="pl-kos">(</span><span class="pl-c1">&amp;</span><span class="pl-c1">10</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">println</span><span class="pl-en">!</span><span class="pl-kos">(</span><span class="pl-s">"删除 10 后: {}"</span><span class="pl-kos">,</span> list<span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// [5 -&gt; 99]</span>
+
+    <span class="pl-c">// 按索引插入</span>
+    list<span class="pl-kos">.</span><span class="pl-en">insert_at</span><span class="pl-kos">(</span><span class="pl-c1">1</span><span class="pl-kos">,</span> <span class="pl-c1">88</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">println</span><span class="pl-en">!</span><span class="pl-kos">(</span><span class="pl-s">"在索引 1 插入 88: {}"</span><span class="pl-kos">,</span> list<span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// [5 -&gt; 88 -&gt; 99]</span>
+
+    <span class="pl-c">// 按索引删除</span>
+    list<span class="pl-kos">.</span><span class="pl-en">remove_at</span><span class="pl-kos">(</span><span class="pl-c1">0</span><span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-en">println</span><span class="pl-en">!</span><span class="pl-kos">(</span><span class="pl-s">"删除索引 0 后: {}"</span><span class="pl-kos">,</span> list<span class="pl-kos">)</span><span class="pl-kos">;</span> <span class="pl-c">// [88 -&gt; 99]</span>
+
+    <span class="pl-c">// 迭代</span>
+    <span class="pl-k">for</span> val <span class="pl-k">in</span> list<span class="pl-kos">.</span><span class="pl-en">iter</span><span class="pl-kos">(</span><span class="pl-kos">)</span> <span class="pl-kos">{</span>
+        <span class="pl-en">println</span><span class="pl-en">!</span><span class="pl-kos">(</span><span class="pl-s">"iter: {}"</span><span class="pl-kos">,</span> val<span class="pl-kos">)</span><span class="pl-kos">;</span>
+    <span class="pl-kos">}</span>
+<span class="pl-kos">}</span></pre></div>
+<h1>Author :Poss-Rexim</h1>
+<p>where can find  me?<br>
+<a target="_blank" rel="noopener noreferrer" href="ddt1472582022@outlook.com"><img src="ddt1472582022@outlook.com" alt="喵~!以后就是朋友了" style="max-width: 100%;"></a></p></div>
 <div style="font-size:small;margin-top:8px;float:right;"></div>
 
 <button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
